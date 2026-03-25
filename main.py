@@ -716,5 +716,49 @@ def main() -> int:
         return 1
 
 
+# ====================== 生成 Excel ======================
+import pandas as pd
+from datetime import datetime
+
+def save_to_excel(results):
+    try:
+        data = []
+        for r in results:
+            data.append({
+                "股票代码": r.code,
+                "股票名称": r.name,
+                "操作建议": r.operation_advice,
+                "情绪评分": round(r.sentiment_score, 2),
+                "趋势预测": r.trend_prediction,
+            })
+
+        df = pd.DataFrame(data)
+        filename = f"stock_analysis_{datetime.now().strftime('%Y%m%d')}.xlsx"
+        df.to_excel(filename, index=False)
+        print(f"✅ Excel 已生成：{filename}")
+    except Exception as e:
+        print(f"❌ Excel 生成失败：{e}")
+
+# ====================== 主程序 ======================
 if __name__ == "__main__":
-    sys.exit(main())
+    # 先运行原来的逻辑
+    res = main()
+    
+    # 自动导出 Excel
+    try:
+        from src.core.pipeline import StockAnalysisPipeline
+        from src.config import get_config
+        config = get_config()
+        config.refresh_stock_list()
+        
+        pipeline = StockAnalysisPipeline(config=config)
+        results = pipeline.run(
+            stock_codes=config.stock_list,
+            dry_run=True,
+            send_notification=False
+        )
+        save_to_excel(results)
+    except Exception as e:
+        print(f"导出Excel失败: {e}")
+        
+    sys.exit(res)
