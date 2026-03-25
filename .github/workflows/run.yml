@@ -1,5 +1,4 @@
-name: 每日股票分析自动运行
-
+name: 每日股票分析 + 自动发邮箱
 on:
   workflow_dispatch:
   schedule:
@@ -8,7 +7,7 @@ on:
 jobs:
   run-analysis:
     runs-on: ubuntu-latest
-    permissions:  # 👈 必须加这个，否则无法保存文件
+    permissions:
       contents: write
     steps:
       - uses: actions/checkout@v4
@@ -24,14 +23,58 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+          pip install pandas openpyxl
 
-      - name: 运行分析
+      - name: 运行分析 + 生成 Excel
         run: python main.py
 
-      - name: 保存生成的 Excel 文件
+      - name: 发送邮件到你的QQ邮箱
+        env:
+          MAIL_HOST: ${{ secrets.MAIL_HOST }}
+          MAIL_USER: ${{ secrets.MAIL_USER }}
+          MAIL_PASS: ${{ secrets.MAIL_PASS }}
+          TO_MAIL: ${{ secrets.TO_MAIL }}
+        run: |
+          cat > send_mail.py << 'EOF'
+          import smtplib,os,glob
+          from email.mime.multipart import MIMEMultipart
+          from email.mime.base import MIMEBase
+          from email.mime.text import MIMEText
+          from email import encoders
+
+          def send():
+              MAIL_HOST = os.getenv("MAIL_HOST")
+              MAIL_USER = os.getenv("MAIL_USER")
+              MAIL_PASS = os.getenv("MAIL_PASS")
+              TO_MAIL = os.getenv("TO_MAIL")
+
+              msg = MIMEMultipart()
+              msg['From'] = MAIL_USER
+              msg['To'] = TO_MAIL
+              msg['Subject'] = "📈 每日股票分析报表"
+              msg.attach(MIMEText("自动生成，附件为Excel", "plain", "utf-8"))
+
+              fs = glob.glob("*.xlsx")
+              if not fs:return
+              with open(fs[0],'rb') as f:
+                  part = MIMEBase('application','octet-stream')
+                  part.set_payload(f.read())
+                  encoders.encode_base64(part)
+                  part.add_header('Content-Disposition', f'attachment; filename={fs[0]}')
+                  msg.attach(part)
+
+              s = smtplib.SMTP_SSL(MAIL_HOST,465)
+              s.login(MAIL_USER,MAIL_PASS)
+              s.sendmail(MAIL_USER,TO_MAIL,msg.as_string())
+              s.quit()
+              print("✅ 邮件发送成功")
+          send()
+          EOF
+          python send_mail.py
+
+      - name: 保存Excel到仓库
         uses: EndBug/add-and-commit@v9
         with:
-          add: '*.xlsx'  # 👈 只提交Excel，确保一定能找到
-          message: "自动更新股票分析结果"
-          committer_name: GitHub Actions
-          committer_email: actions@github.com
+          add: '*.xlsx'
+          message: "自动生成股票Excel"
+          allow_empty: true
