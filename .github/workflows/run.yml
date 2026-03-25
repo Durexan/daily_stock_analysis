@@ -3,13 +3,17 @@ name: 每日股票分析自动运行
 on:
   workflow_dispatch:
   schedule:
-    - cron: "0 0 * * *"  # 这里修复好了
+    - cron: "0 0 * * *"
 
 jobs:
   run-analysis:
     runs-on: ubuntu-latest
+    permissions:  # 👈 必须加这个，否则无法保存文件
+      contents: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
 
       - name: 设置 Python
         uses: actions/setup-python@v5
@@ -24,7 +28,10 @@ jobs:
       - name: 运行分析
         run: python main.py
 
-      - name: 保存生成的文件
+      - name: 保存生成的 Excel 文件
         uses: EndBug/add-and-commit@v9
         with:
+          add: '*.xlsx'  # 👈 只提交Excel，确保一定能找到
           message: "自动更新股票分析结果"
+          committer_name: GitHub Actions
+          committer_email: actions@github.com
