@@ -1,17 +1,17 @@
 name: 每日股票分析自动运行
 
 on:
-  workflow_dispatch:    # 手动运行
+  workflow_dispatch:
   schedule:
-    - cron: "0 0 * *"   # 每天北京时间 8 点自动执行
+    - cron: "0 0 * * *"  # 这里修复好了
 
 jobs:
-  build:
+  run-analysis:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: 配置 Python
+      - name: 设置 Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
@@ -24,7 +24,7 @@ jobs:
       - name: 运行分析
         run: python main.py
 
-      - name: 提交生成的 Excel/报表
+      - name: 保存生成的文件
         uses: EndBug/add-and-commit@v9
         with:
           message: "自动更新股票分析结果"
